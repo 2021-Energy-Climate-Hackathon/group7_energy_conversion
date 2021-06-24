@@ -34,6 +34,7 @@ def calliope_inputs_country(country,hub_height):
     t2m_daily_data,country_mask,lons,lats,dates_daily = energy_model_functions.load_country_weather_data(country,ddir,'tas_1hrly_mean_a000_2018-01_2018-12.nc','item3236_1hrly_mean','time1',24)
     hdd, cdd = energy_model_functions.calc_hdd_cdd(t2m_daily_data,country_mask)
     demand_timeseries = energy_model_functions.calc_national_wd_demand_2017(hdd,cdd,'inputs/ERA5_Regression_coeffs_demand_model.csv',country.replace(" ", "_"))
+    demand_timeseries = energy_model_functions.convert_daily_demand_to_hourly(demand_timeseries,dates_daily)
 
     # Wind
     wind_data = energy_model_functions.load_10mwindspeed_and_convert_to_hub_height(ddir,'10mwd_1hrly_mean_a000_2018-01_2018-12.nc','item3249_1hrly_mean',hub_height)
@@ -57,7 +58,7 @@ def main():
         print(demand.shape)        
         if i==0:
             solar_pv_df=pd.DataFrame(data={'timestep':dates})
-            demand_df=pd.DataFrame(data={'timestep':dates_daily})
+            demand_df=pd.DataFrame(data={'timestep':dates})
             wind_df=pd.DataFrame(data={'timestep':dates})
         solar_pv_df[code] = solar_pv_cf
         demand_df[code] = demand
@@ -79,8 +80,8 @@ def main():
     ax2.set_title("Demand")
     ax2.plot(demand_df['GBR'], color='red',label="GBR")
     ax2.plot(demand_df['IRE'], color='blue',label="IRE")
-    ax2.set_xlim(0,360)
-    ax2.xaxis.set_major_locator(ticker.MultipleLocator(30))
+    ax2.set_xlim(0,8640)
+    ax2.xaxis.set_major_locator(ticker.MultipleLocator(720))
     ax2.set_xticklabels(calendar.month_abbr)
     ll=plt.legend(loc="upper right",prop={"size": 14},fancybox=True,numpoints=1)
 
@@ -94,7 +95,7 @@ def main():
 
     fig.canvas.draw()
     plt.tight_layout()
-    fig.savefig("CPDN_calliope_inputs.png")
+    fig.savefig(prefix+"_calliope_inputs.png")
 
 
     solar_pv_df.to_csv(prefix+'_solar_PV.csv',index=False)

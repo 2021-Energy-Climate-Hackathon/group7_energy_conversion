@@ -442,3 +442,119 @@ def country_wind_power(gridded_wind_power,wind_turbine_locations):
     
     return(wind_power_country_cf)
 
+
+
+def calc_diurnal_cycle(file1_str,file2_str,data_frequency):
+    """ load in hourly demand data and calculate a diurnal cycle in demand"""
+    actual_demand=[]
+
+    #os.chdir(data_directory)
+    with open(file1_str) as f:
+        next(f) # gets around the problem with the header of the file
+
+        counter = 0
+
+        for line in f:
+            counter = counter +1
+            columns = line.split(',')
+            if columns[2] == '"N/A"':
+                actual_demand.append(actual_demand[counter-2])
+            elif columns[2] == '"N/A"\n':
+                actual_demand.append(actual_demand[counter-2])
+            else:
+                actual_demand.append(float(columns[2][1:-2])/1000) # append the actual load remember zero indexing.
+
+    f.close()
+
+    with open(file2_str) as f:
+        next(f) # gets around the problem with the header of the file
+
+        counter = 0
+        for line in f:
+            counter = counter +1
+            columns = line.split(',')
+            if columns[2] == '"N/A"':
+                actual_demand.append(actual_demand[counter-2]) #replace with previous value so we dont have problems with Nans in regression model
+            elif columns[2] == '"N/A"\n':
+                actual_demand.append(actual_demand[counter-2])
+
+            else:
+                actual_demand.append(float(columns[2][1:-2])/1000) # append the actual load (this is half hourly data) remember zero indexing.
+
+    f.close()
+
+    # convert to hourly data
+    if data_frequency == '15min':
+        divider_for_demand = 4
+    elif data_frequency == '30min':
+        divider_for_demand = 2
+    elif data_frequency == 'hourly':
+        divider_for_demand = 1
+    else:
+        print("we dont have hourly demand...")
+
+    len_of_training_period = int(len(actual_demand)/divider_for_demand) # then we have the length of everything. Note casting to int as array dimensions cannot be floats
+    #print(len(actual_demand),len_of_training_period,divider_for_demand)
+
+    actual_demand_array = np.array(actual_demand)# lets turn this list into an array.
+    actual_demand_reshaped_array = np.reshape(actual_demand_array[0:len_of_training_period*divider_for_demand],[len_of_training_period,divider_for_demand]) # and reshape it so we can get daily mean demand
+    actual_hourly_demand = np.mean(actual_demand_reshaped_array,axis=1)
+
+    # now lets reshape to get the two years beside eachother (ignore leap day)
+    both_actual_hourly_demand = np.reshape(actual_hourly_demand[0:2*8760],[2,8760])
+
+    # lets roll the data so that winters are together
+    rolled_actual_demand = np.roll(both_actual_hourly_demand,31*24,axis=1) # the year now starts at december.
+
+    # now we need to reshape this again into a hourly timeseries
+    reshaped_for_anomaly_calc = np.reshape(rolled_actual_demand,[2,365,24])
+
+    # calculate the total mean demand
+    mean_demand = np.mean(reshaped_for_anomaly_calc)
+
+    # calculate diurnal cycle
+    winter_anomaly = np.nanmean(np.nanmean(reshaped_for_anomaly_calc[:,0:91,:],axis=0),axis=0) - np.nanmean(reshaped_for_anomaly_calc[:,0:91,:])
+    spring_anomaly = np.nanmean(np.nanmean(reshaped_for_anomaly_calc[:,91:182,:],axis=0),axis=0) - np.nanmean(reshaped_for_anomaly_calc[:,91:182,:])
+    summer_anomaly = np.nanmean(np.nanmean(reshaped_for_anomaly_calc[:,182:243,:],axis=0),axis=0) -np.nanmean(reshaped_for_anomaly_calc[:,182:243,:])
+    autumn_anomaly = np.nanmean(np.nanmean(reshaped_for_anomaly_calc[:,243:365,:],axis=0),axis=0) - np.nanmean(reshaped_for_anomaly_calc[:,243:365,:])
+
+    # make a blended seasonal cycle of the form diurnal_cycle = diurnal_cycle(month,hour of the day)
+    diurnal_cycle = np.zeros([12,24])
+    diurnal_cycle[0,:] = winter_anomaly # January
+    diurnal_cycle[1,:] = 0.5*winter_anomaly + 0.5*spring_anomaly
+    diurnal_cycle[2,:] = 0.5*winter_anomaly + 0.5*spring_anomaly
+    diurnal_cycle[3,:] = spring_anomaly #April
+    diurnal_cycle[4,:] = 0.5*spring_anomaly + 0.5*summer_anomaly
+    diurnal_cycle[5,:] = 0.5*spring_anomaly + 0.5*summer_anomaly
+    diurnal_cycle[6,:] = summer_anomaly # July
+    diurnal_cycle[7,:] = 0.5*summer_anomaly + 0.5*autumn_anomaly
+    diurnal_cycle[8,:] = 0.5*summer_anomaly + 0.5*autumn_anomaly
+    diurnal_cycle[9,:] = autumn_anomaly
+    diurnal_cycle[10,:] = 0.5*autumn_anomaly + 0.5*winter_anomaly
+    diurnal_cycle[11,:] = 0.5*autumn_anomaly + 0.5*winter_anomaly
+
+    return diurnal_cycle, mean_demand
+
+
+def convert_daily_demand_to_hourly(demand_timeseries,dates):
+    """ Convert daily demand data to hourly by adding a diurnal cycle. The form of the diurnal cycle also varies with the calendar
+    month"""
+
+    # these files only apply to the UK, we will apply a fudge factor, scaling by the mean to apply this to Ireland or other countries
+    file1_str = '/gws/pw/j05/cop26_hackathons/oxford/Group_folders/group_7/energy_conversion/group_7/inputs/Total_Load_Day_Ahead_Actual_201601010000-201701010000.csv'
+    file2_str = '/gws/pw/j05/cop26_hackathons/oxford/Group_folders/group_7/energy_conversion/group_7/inputs/Total_Load_Day_Ahead_Actual_201701010000-201801010000.csv'
+    diurnal_cycle, mean_demand_UK = calc_diurnal_cycle(file1_str,file2_str,data_frequency='30min')
+
+    n_times = demand_timeseries.shape[0]
+    mean_demand_country = np.mean(demand_timeseries)
+    demand_timeseries_hourly = np.zeros([n_times,24])
+    scaling = mean_demand_country / mean_demand_UK # fudge factor to scale the diurnal cycle by the mean demand
+
+    for i,value in enumerate(demand_timeseries):
+        month_index = dates[i].timetuple()[1] - 1 # -1 for zero indexing, hence Jan=0,Feb=1...
+        demand_timeseries_hourly[i,:] = np.array([demand_timeseries[i]]).reshape(1,1) + scaling * diurnal_cycle[month_index,:].reshape(1,24) 
+
+    demand_timeseries_hourly = demand_timeseries_hourly.flatten()
+
+    return demand_timeseries_hourly
+
