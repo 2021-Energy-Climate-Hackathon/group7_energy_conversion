@@ -15,7 +15,7 @@ import matplotlib.ticker as ticker
 import pandas as pd
 
 # Define dictionary of countries acronyms - may be possible to lookup from shapefile
-countries={'United Kingdom':'GBR','Ireland':'IRL'}
+countries={'Ireland':'IRL','United Kingdom':'GBR'}
 
 # Define input data directory
 ddir='/gws/pw/j05/cop26_hackathons/oxford/Group_folders/group_7/cpdn_example_data/ERA5_2018/'
@@ -35,6 +35,7 @@ def calliope_inputs_country(country,hub_height):
     hdd, cdd = energy_model_functions.calc_hdd_cdd(t2m_daily_data,country_mask)
     demand_timeseries = energy_model_functions.calc_national_wd_demand_2017(hdd,cdd,'inputs/ERA5_Regression_coeffs_demand_model.csv',country.replace(" ", "_"))
     demand_timeseries = energy_model_functions.convert_daily_demand_to_hourly(demand_timeseries,dates_daily)
+    demand_timeseries = demand_timeseries/(-100.) # Convert to MW
 
     # Wind
     wind_data = energy_model_functions.load_10mwindspeed_and_convert_to_hub_height(ddir,'wd10m_ERA5-1hr_2018.nc','u10',hub_height)
