@@ -15,7 +15,7 @@ import matplotlib.ticker as ticker
 import pandas as pd
 
 # Define dictionary of countries acronyms - may be possible to lookup from shapefile
-countries={'United Kingdom':'GBR','Ireland':'IRE'}
+countries={'United Kingdom':'GBR','Ireland':'IRL'}
 
 # Define input data directory
 ddir='/gws/pw/j05/cop26_hackathons/oxford/Group_folders/group_7/cpdn_example_data/ERA5_2018/'
