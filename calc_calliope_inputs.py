@@ -72,7 +72,7 @@ def main():
 
     ax1.set_title("Solar PV Capacity Factor")
     ax1.plot(solar_pv_df['GBR'],color='red',label="GBR")
-    ax1.plot(solar_pv_df['IRE'],color='blue',label="IRE")
+    ax1.plot(solar_pv_df['IRL'],color='blue',label="IRL")
     ax1.set_xlim(0,8640)
     ax1.xaxis.set_major_locator(ticker.MultipleLocator(720))
     ax1.set_xticklabels(calendar.month_abbr)
@@ -80,7 +80,7 @@ def main():
 
     ax2.set_title("Demand")
     ax2.plot(demand_df['GBR'], color='red',label="GBR")
-    ax2.plot(demand_df['IRE'], color='blue',label="IRE")
+    ax2.plot(demand_df['IRL'], color='blue',label="IRL")
     ax2.set_xlim(0,8640)
     ax2.xaxis.set_major_locator(ticker.MultipleLocator(720))
     ax2.set_xticklabels(calendar.month_abbr)
@@ -88,7 +88,7 @@ def main():
 
     ax3.set_title("Wind Power Capacity Factor")
     ax3.plot(wind_df['GBR'], color='red',label="GBR")
-    ax3.plot(wind_df['IRE'], color='blue',label="IRE")
+    ax3.plot(wind_df['IRL'], color='blue',label="IRL")
     ax3.set_xlim(0,8640)
     ax3.xaxis.set_major_locator(ticker.MultipleLocator(720))
     ax3.set_xticklabels(calendar.month_abbr)
